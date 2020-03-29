@@ -1,2 +1,2 @@
-# SEIS751_Project
-This is my project for the St Thomas Web App Design &amp; Development (SEIS751) course.
+# SEIS744_Project
+This is my project for the Internet of Things (SEIS751) course at St Thomas.
