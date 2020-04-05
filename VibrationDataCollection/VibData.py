@@ -7,7 +7,7 @@ import busio
 import adafruit_adxl34x
 
 # Change this to flag the state the furnace is in
-FURNACE_STATE = 0    # 0 => off; 1  => starting; 2 => on; 3 => stopping
+FURNACE_STATE = 0    # 0 => off; 1  =>  startup/shutdown; 2 => on
 
 # Some constant values; change for experimenting
 READINGS_PER_SECOND = 20
