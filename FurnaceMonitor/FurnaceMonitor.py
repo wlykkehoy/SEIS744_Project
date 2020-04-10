@@ -23,7 +23,7 @@ RUNNING_STATE_WINDOW_SIZE = 100   # num readings to consider for determing curre
 READINGS_PER_IOT_HUB_MSG = 20     # Thus will be pumping 1 message/sec to IoT Hub
 IOT_HUB_CONNECTION_STRING = "HostName=seis744-project-hub.azure-devices.net;DeviceId=razpi;SharedAccessKey=jXQ3aV44XyohPTYced9rrJSgQe56d0wumgl5m/9Xhxw="
 #MSG_TEMPLATE = '{{"ts":"{ts_data}","vib":{vib_data:10.8f},"state":"{state_data}"}}'
-MSG_TEMPLATE = '{{"ts":"{ts_data}","vib":{vib_data:10.8f},"state":"{state_data}","sis":"{seconds_in_state}"}}'
+MSG_TEMPLATE = '{{"ts":"{ts_data}","vib":{vib_data:10.8f},"state":"{state_data}","sis":{seconds_in_state}}}'
 
 
 
