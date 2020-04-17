@@ -16,14 +16,19 @@ from azure.iot.device import IoTHubDeviceClient, Message
 
 
 # Some constant values; change these to change behavior of the app
+DEVICE_ID = 'RazPi'                  # name for the d evice; used in Azure machinery
+
 READINGS_PER_SECOND = 20
-RUNNING_VIB_WINDOW_SIZE = 20      # num readings to average over for our vibration calc; 20 => a 1 second window
-RUNNING_STATE_WINDOW_SIZE = 100   # num readings to consider for determing current state; 100 => a 5 second window
+RUNNING_VIB_WINDOW_SIZE = 20         # num readings to average over for our vibration calc; 20 => a 1 second window
+RUNNING_VIB_ALERT_WINDOW_SIZE = 40   # num readings to average over for our vibration alert; 40 => 2 second window
+RUNNING_STATE_WINDOW_SIZE = 100      # num readings to consider for determing current state; 100 => a 5 second window
+
+VIB_ALERT_THRESHOLD = 2.0            # vibration threshold for generating an alert; would be better to do an
+                                     #  anomoly detection algorithm; maybe later...
 
 READINGS_PER_IOT_HUB_MSG = 20     # Thus will be pumping 1 message/sec to IoT Hub
 IOT_HUB_CONNECTION_STRING = "HostName=seis744-project-hub.azure-devices.net;DeviceId=razpi;SharedAccessKey=jXQ3aV44XyohPTYced9rrJSgQe56d0wumgl5m/9Xhxw="
-#MSG_TEMPLATE = '{{"ts":"{ts_data}","vib":{vib_data:10.8f},"state":"{state_data}"}}'
-MSG_TEMPLATE = '{{"ts":"{ts_data}","vib":{vib_data:10.8f},"state":"{state_data}","sis":{seconds_in_state}}}'
+MSG_TEMPLATE = '{{"dev_id":"{dev_id}","ts":"{ts_data}","vib":{vib_data:10.8f},"state":{state_data},"sis":{seconds_in_state},"vibalert":"{vib_alert}"}}'
 
 
 
@@ -43,7 +48,10 @@ def main_loop(echo_messages, echo_sum_delta, echo_running_window):
     
     # We will be doing a running average of the readings over a given window size
     running_vib_window = collections.deque(maxlen=RUNNING_VIB_WINDOW_SIZE)
-    
+
+    # Plus a running average of the readings over a given window size for the vibration alert
+    running_vib_alert_window = collections.deque(maxlen=RUNNING_VIB_ALERT_WINDOW_SIZE)
+
     # And also doing a window over the predicted state, taking the most predicted value
     running_state_window = collections.deque(maxlen=RUNNING_STATE_WINDOW_SIZE)
 
@@ -75,9 +83,13 @@ def main_loop(echo_messages, echo_sum_delta, echo_running_window):
             if (echo_sum_delta):
                 print('{:>10.6f}'.format(sum_delta), flush=True)
             
-            # Find the running average
+            # Find the running average for the vibration
             running_vib_window.append(sum_delta)
             vib_avg = statistics.mean(running_vib_window)
+            
+            # Find the running average for the vibration alert & determine alert status
+            running_vib_alert_window.append(sum_delta)
+            vib_alert = statistics.mean(running_vib_window) > VIB_ALERT_THRESHOLD
         
             # Use our AI model to determine (predict) the state, using the most predicted
             #  state over a running window as the 'true' current state
@@ -100,12 +112,21 @@ def main_loop(echo_messages, echo_sum_delta, echo_running_window):
                 formatted_time = time.strftime('%Y-%m-%dT%H:%M:%Sz', time.gmtime(reading_time))
                 seconds_in_state = int(reading_time - state_change_time)
                 msg_text = MSG_TEMPLATE.format(ts_data=formatted_time, vib_data=vib_avg,
-                                               state_data=state, seconds_in_state=seconds_in_state)
+                                               state_data=state, seconds_in_state=seconds_in_state ,
+                                               vib_alert=vib_alert, dev_id=DEVICE_ID)
                 if (echo_messages):
                     print(msg_text, flush=True)
-            
+
                 # Package the message up and send on to the Azure IoT Hub
                 msg = Message(msg_text)
+                
+                # Add a custom application property to the message to trigger an alert email.
+                if vib_alert:
+                  msg.custom_properties['vibrationAlert'] = "True"
+                else:
+                  msg.custom_properties['vibrationAlert'] = "False"
+              
+                # Send 'er on up to the IoT Hub
                 client.send_message(msg)
                 
                 reading_count = 0
